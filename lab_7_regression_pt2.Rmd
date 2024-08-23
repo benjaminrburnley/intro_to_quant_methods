@@ -1,0 +1,274 @@
+---
+title: "lab_7_regression_pt2"
+author: "Ben Burnley"
+date: "2022-10-13"
+output: html_document
+---
+
+```{r}
+### packages 
+library(tidyverse)
+
+```
+
+```{r}
+### data 
+presvote = read_csv("PresVote.csv")
+```
+
+```{r}
+### quick scatter plot reminder 
+ggplot(presvote, aes(rdi4, vote))+
+  geom_point()
+```
+
+## Simple Linear Regression Model
+
+```{r}
+## model 1 
+model1 = lm(vote ~ rdi4, data = presvote)
+lm1 = summary(model1)
+lm1
+```
+
+Questions:
+
+-   What is our $\beta_0$ estimate? Standard error?
+
+-   What is our $\beta_1$ estimate? Standard error?
+
+-   What are is the t-value for $\beta_1$?
+
+```{r}
+## t-value 
+estimate = lm1$coefficients[2,1] # pull out values 
+se = lm1$coefficients[2,2]
+
+# formula for t-value
+t = estimate/se
+t
+
+# finding p-value
+(1- pt(t, df = 15))*2
+
+qt(c(0.025,0.975), df = 15)
+
+## visualizing this in the t-distribution
+tibble(x = seq(-5,5,0.01)) %>% 
+ggplot(aes(x))+
+  stat_function(fun = dt, args = list(df = 15))+
+  geom_vline(aes(xintercept = t), color = "green")+
+  geom_vline(aes(xintercept = 2.13145), linetype = "dashed")+
+  geom_vline(aes(xintercept = -2.13145), linetype = "dashed")+
+  geom_vline(aes(xintercept = 0), color = "blue")+
+  theme_minimal()+
+  labs(x = "t")+
+    theme(
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank()
+  )
+```
+
+```{r}
+## cofidence interval approach 
+tibble(x = seq(-5,5,0.01)) %>% 
+ggplot(aes(x))+
+  geom_hline(aes(yintercept = estimate), color = "green")+
+  geom_hline(aes(yintercept = 0), color = "blue")+
+  geom_segment(aes(x = 1, xend = 1, y = estimate - se*2.131, yend = estimate + se*2.131))+
+  theme_minimal()+
+  labs(y = "Beta Estimate")+
+    theme(
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank()
+  )+
+  ylim(c(-5,5))+
+  coord_flip()
+```
+
+## Goodness of Fit
+
+```{r}
+ggplot(presvote, aes(rdi4, vote))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  theme_minimal()
+
+```
+
+```{r}
+lm1
+```
+
+-   What is the $R^2$?
+
+-   What is the Adjusted $R^2$?
+
+-   What is the Residual Standard Error (also known as Root MSE, Mean Squared Error, and Standard Error of the Regression)?
+
+-   Which do statistic is the most useful for measuring goodness of fit?
+
+```{r}
+### predicting 
+votes = tibble(rdi4 = seq(-2,7,.5))
+
+exp_values = predict.lm(model1, votes, se.fit = TRUE, df = 15, interval = "confidence")
+pred_values = predict.lm(model1, votes, se.fit = TRUE, df = 15, interval = "prediction")
+
+exp_values
+pred_values
+```
+
+```{r}
+#build data set of predictions and se 
+predictions = tibble(rdi4 = seq(-2,7,.5), 
+                     exp = exp_values$fit[,1], 
+                     exp_low = exp_values$fit[,2], 
+                     exp_high = exp_values$fit[,3], 
+                     pred = pred_values$fit[,1], 
+                     pred_low = pred_values$fit[,2], 
+                     pred_high = pred_values$fit[,3])
+
+predictions
+
+# just prediction line
+ggplot(predictions, aes(rdi4, exp))+
+  geom_line()+
+  theme_minimal()
+
+# prediction line with se of expected values 
+ggplot(predictions, aes(rdi4, exp))+
+  geom_line()+
+  geom_line(aes(rdi4,exp_low), color = "blue", linetype = "dashed")+
+  geom_line(aes(rdi4,exp_high), color = "blue", linetype = "dashed")+
+  theme_minimal()
+
+# prediction line with se of predicted values 
+ggplot(predictions, aes(rdi4, exp))+
+  geom_line()+
+  geom_line(aes(rdi4,exp_low), color = "blue", linetype = "dashed")+
+  geom_line(aes(rdi4,exp_high), color = "blue", linetype = "dashed")+
+  geom_line(aes(rdi4,pred_low), color = "red", linetype = "dashed")+
+  geom_line(aes(rdi4,pred_high), color = "red", linetype = "dashed")+
+  theme_minimal()
+
+```
+
+## Simple Regression - Binary Independent Variable
+
+```{r}
+# formula 
+model2 = lm(vote ~ reelection, data = presvote)
+lm2 = summary(model2)
+lm2
+```
+
+```{r}
+###  visualization 
+ggplot(presvote, aes(reelection, vote))+
+  geom_point()+
+  theme_minimal()
+
+# with regression line 
+ggplot(presvote, aes(reelection, vote))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  theme_minimal()
+```
+
+## Multivariate Regression
+
+```{r}
+## sample code 
+# model = lm(y ~ x + control, data = data)
+
+## presidential vote model, controlling for reelection 
+model3 = lm(vote ~ rdi4 + reelection, data = presvote)
+
+## summary
+lm3 = summary(model3)
+lm3
+lm1
+```
+
+### Showing How New Variables Changes Estimates
+
+```{r}
+# create model predictions 
+presvote_predict = presvote %>% 
+  mutate(pred1 = predict(model1),
+         pred3 = predict(model3))
+
+# plot with simple line
+ggplot(presvote_predict, aes(rdi4, vote))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  theme_minimal()
+
+# add model 1 predictions
+ggplot(presvote_predict, aes(rdi4, vote))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  theme_minimal()+
+  geom_point(aes(rdi4, pred1), color = "red")
+
+## add model3 predictions
+ggplot(presvote_predict, aes(rdi4, vote))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  theme_minimal()+
+  geom_point(aes(rdi4, pred1), color = "red")+
+  geom_point(aes(rdi4, pred3), color = "green")
+```
+
+## Presenting Regression
+
+```{r}
+# texreg package
+install.packages("texreg")
+library("texreg")
+texreg(list(model1, model2, model3), stars = c(0.01, 0.05, 0.1), 
+       caption = "Regression Results", digits = 2)
+
+# stargazer package
+install.packages("stargazer")
+library("stargazer")
+stargazer(model1, model2, model3, title="Regression Results", header = FALSE, digits = 2)
+
+# huxtable package
+install.packages("huxtable") # need this package to use jtools package for exporting to Word
+library(huxtable) 
+install.packages("officer")
+library(officer)
+install.packages("flextable") 
+library(flextable)
+regressiontables <- huxreg(model1, model2, model3) # start with huxreg function, then use quick_docx function
+quick_docx(regressiontables, file = "~/Desktop/Output.docx")
+```
+
+```{r, results='asis'}
+stargazer(model1, model2, model3, header=FALSE, type="text")
+```
+
+```{r}
+# Two common packages for exporting coefficient plots are "jtools" and "coefplot"
+# Both packages have tons of options for customizing titles, colors, and formatting.
+
+# Using plot_summs function from jtools package: https://rdrr.io/cran/jtools/man/plot_summs.html 
+install.packages("jtools")
+library(jtools)
+install.packages("ggstance") # need in order to use plot_summs function
+library("ggstance")
+install.packages("broom.mixed") # need in order to use plot_summs function
+library("broom.mixed")
+plot_summs(model1) # plotting coefficients from one regression model
+plot_summs(model1, model2, model3) # plotting coefficients from multiple models
+
+
+# Using coefplot package: https://cran.r-project.org/web/packages/coefplot/coefplot.pdf 
+install.packages("coefplot")
+library("coefplot")
+coefplot(model1, intercept=FALSE) # plotting coefficients from one regression model
+multiplot(model1, model2, model3, intercept=FALSE)+
+  theme_minimal()# plotting coefficients from multiple models
+```

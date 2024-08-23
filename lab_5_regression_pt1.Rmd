@@ -1,0 +1,307 @@
+---
+title: "lab_5_regression_1"
+author: "Ben Burnley"
+date: "2022-09-29"
+output: html_document
+---
+
+```{r}
+# packages 
+library(tidyverse)
+library(readxl)
+
+# load data 
+pres_vote <- read_excel("pres_vote.xlsx")
+ev <- read_csv(file = "econ_vote.csv")
+```
+
+## A Quick Tutorial on Distributions
+
+You will need to know how to use these commands from time to time. The two you will use most are `pnorm` and `rnorm`, but all four come in handy. You can use the same commands for other distributions (`?distributions`)
+
+`dnorm`: density function of the normal distribution
+
+`pnorm`: cumulative density function of the normal distribution
+
+`qnorm`: quantile function of the normal distribution
+
+`rnorm`: random sampling from the normal distribution
+
+### `pnorm` and `rnorm`
+
+```{r}
+# for help 
+?distributions
+
+# using pnorm
+# for when you know a value and you want a probability of it occurring 
+pnorm(1.96, mean = 0, sd = 1, lower.tail = TRUE) # mean = 0, sd = 1 are defaults, written here for clarity 
+pnorm(1.96, mean = 0, sd = 1, lower.tail = FALSE)
+
+# simulation using r norm 
+data = rnorm(1000, mean = 50, sd = 10)
+hist(data)
+
+# in what percent of cases are observations greater than 80?
+pnorm(80, mean = 50, sd = 10, lower.tail = F)
+
+# in what percent of cases are observations lower than 30?
+pnorm(30, mean = 50, sd = 10)
+
+# in what percent of cases are observations between 45 and 55?
+pnorm(55, 50, 10) - pnorm(45, 50, 10)
+
+# in what percent of cases are observations above 55 AND below 45?
+
+
+```
+
+### `qnorm`
+
+```{r}
+# using qnorm: you have a quantile and you want a value
+summary(data)
+```
+
+```{r}
+# some qnorm examples 
+qnorm(.25, 50, 10)
+qnorm(.75, 50, 10)
+qnorm(.25, 50, 10, lower.tail = F)
+qnorm(.50, 50, 10)
+
+
+# another way to think about this is you are giving R a probability
+
+# what is the value such that 2.275013% of cases are less than it?
+qnorm(0.02275013, 50, 10)
+```
+
+### `dnorm`
+
+```{r}
+# how often did a value occur? 
+dnorm(50, 50, 10)
+
+df = data.frame(data)
+ggplot(df, aes(x = data))+
+  geom_density()
+
+data2 = rnorm(1000000)
+df2 = data.frame(data2)
+ggplot(df2, aes(x = data2))+
+  geom_density()
+dnorm(0)
+
+```
+
+## Regression
+
+```{r}
+## "Regress y on x"
+?lm
+# General command for OLS
+regression1 <- lm(data$y ~ data$x) 
+# An easier way to write the same thing:
+regression1 <- lm(y ~ x, data = data) 
+
+# View summary of regression results 
+summary(regression1)
+```
+
+```{r}
+# view our data set
+View(pres_vote)
+
+# Describe what is happening in this regression?
+model1 <- lm(Trump_2016 ~ rnormvote, data = pres_vote)
+
+# what is an lm object? 
+class(model1)
+
+View(model1)
+
+summary(model1)
+```
+
+```{r}
+# Fitted or predicted values are where a given x-value falls on the line of best fit
+# Find values by substituting a given value of x into the regression equation
+# pulling out fitted values - both commands work 
+model1$fitted.values
+fitted(model1)
+
+# Residuals are the difference between the observed data and the fitted values
+# Positive values mean prediction was too low, negative values mean prediction was too high
+# pulling out residuals from a model objects - both commands work
+model1$residuals
+residuals(model1)
+
+
+# plot residuals vs. fitted values 
+# Plot
+yhat <- model1$fitted.values
+e <- model1$residuals 
+
+plot(e ~ yhat) # can add graphing elements like title, etc.!
+abline(h=0,col="red") # points on the line were perfectly predicted by our model
+
+# in ggplot 
+ggplot()+
+  geom_point(aes(x = yhat, y = e))+
+  geom_hline(yintercept = 0, color = "red")
+
+# compare fitted values to observed values
+ggplot()+
+  geom_point(aes(x = yhat, y = pres_vote$Trump_2016))+
+  geom_abline(color = "red")
+```
+
+```{r}
+# an example of how looking at this might be helpful
+x = seq(1:100) 
+y = x^2
+plot(x,y)
+ex_model = lm(y ~ x)
+plot(fitted(ex_model), residuals(ex_model))
+abline(h = 0, col = "red")
+```
+
+## Example from Regression Lecture
+
+```{r}
+# Example from Regression lecture
+View(ev)
+range(ev$elec_margin, na.rm = TRUE)
+range(ev$gdp_growth, na.rm = TRUE)
+
+# Plot X against Y
+plot(ev$gdp_growth, ev$elec_margin, xlim = c(-3, 3), ylim = c(-25, 25))
+```
+
+```{r}
+# Regress election margin on gdp growth 
+ev_fit <- lm(formula = elec_margin ~ gdp_growth, data = ev)
+
+
+summary(ev_fit)
+```
+
+```{r}
+# clean up our data 
+ev_gg = ev %>% 
+  filter(year != 2020) %>% 
+  mutate(predicted = predict(ev_fit), # predict function uses model to create fitted values
+         residuals = residuals(ev_fit)) 
+
+# plot of linear regression model 
+ggplot(ev_gg, aes(gdp_growth, elec_margin))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F, color = "red")+
+  theme_bw()
+```
+
+```{r}
+ggplot(ev_gg, aes(x = gdp_growth, y = elec_margin)) +
+  geom_smooth(method = "lm", se = FALSE, color = "lightgrey") +  # Plot regression slope
+  geom_segment(aes(xend = gdp_growth, yend = predicted), alpha = .2) + # Segments show residual distance
+  geom_label(aes(x= gdp_growth, y=(predicted+elec_margin)/2, label = round(residuals,3)), size = 3)  + # Labels show residual value                                                                  # alpha to fade lines
+  geom_point() + # Values  
+  geom_point(aes(y = predicted), shape = 1) + # Fitted values
+  theme_bw()
+```
+
+```{r}
+# sum of the squared residuals
+sum((ev_gg$residuals)^2)
+```
+
+```{r}
+## What if we used a different line? 
+
+ev_gg = ev_gg %>% 
+  mutate(predict2 = -.9292 + gdp_growth*10, #gdp growth increase margin by 10 points
+         residual2 = elec_margin - predict2,
+         predict3 =  -.9292 + gdp_growth*3, # gdp growth increases margin by 3 points
+         residual3 = elec_margin - predict3)
+
+```
+
+```{r}
+# The same figure with our first new line
+ggplot(ev_gg, aes(x = gdp_growth, y = elec_margin)) +
+  geom_smooth(method = "lm", se = F, color = "lightgrey")+
+  geom_abline(intercept = -.9292, slope = 10, color = "red") +  # Plot regression slope
+  geom_segment(aes(xend = gdp_growth, yend = predict2), alpha = .2) +  # Segments show distance of values from fitted values, alpha fades lines
+  geom_label(aes(x= gdp_growth, y=(predicted+elec_margin)/2, label = round(residual2,3)), size = 3)  + # Labels show residual value                                                                  # alpha to fade lines
+  geom_point() +   # Values                                                    
+  geom_point(aes(y = predict2), shape = 1) +# Fitted values
+  theme_bw()  # Add theme for cleaner look
+```
+
+```{r}
+# sum of the squared residuals - linear model 
+sum((ev_gg$residuals)^2)
+# sum of the squared residuals - our guess of 10
+sum((ev_gg$residual2)^2)
+```
+
+```{r}
+ggplot(ev_gg, aes(x = gdp_growth, y = elec_margin))+
+  geom_smooth(method = "lm", se = F, color = "lightgrey")+
+  geom_abline(intercept = -.9292, slope = 3, color = "red") +  # Plot regression slope
+  geom_segment(aes(xend = gdp_growth, yend = predict3), alpha = .2) +  # Segments show distance of values from fitted values 
+  # Alpha to fade lines
+  geom_label(aes(x= gdp_growth, y=(predicted+elec_margin)/2, label = round(residual3,3)), size = 3)  + # Labels show residual value              
+  geom_point() +   # Values
+  geom_point(aes(y = predict3), shape = 1) + # Fitted values
+  theme_bw() 
+
+
+```
+
+```{r}
+# sum of the squared residuals - linear model 
+sum((ev_gg$residuals)^2)
+# sum of the squared residuals - our guess of 3
+sum((ev_gg$residual3)^2)
+```
+
+### A bonus lesson on the troubles of extrapolation
+
+```{r}
+# histogram of GDP growth
+hist(ev$gdp_growth)
+
+# test data frame
+gdp_growth = ev$gdp_growth
+elec_margin = ev$elec_margin
+elec_margin[19] <- -4.4 # Trump's 2020 performance
+
+#create new data frame
+ps = tibble(gdp_growth, elec_margin)
+
+# new model with 2020 
+ev_fit2 = lm(elec_margin ~ gdp_growth, data = ps)
+
+# new prediction
+ps = ps %>% 
+  mutate(predicted = predict(ev_fit),
+         residuals = residuals(ev_fit))
+
+#ggplot with new data and old regression line
+ggplot(ps, aes(gdp_growth, elec_margin))+
+  geom_point()+
+  geom_abline(intercept = -.9292, slope = 3, color = "red")+
+  ylim(-50,50)
+  
+
+
+ggplot(ps, aes(gdp_growth, elec_margin))+
+  geom_smooth(method = "lm", se = FALSE, color = "lightgrey") +  # Plot regression slope
+  geom_segment(aes(xend = gdp_growth, yend = predicted), alpha = .2) + #Segments show residual distance
+  geom_label(aes(x= gdp_growth, y=(predicted+elec_margin)/2, label = round(residuals,3)), size = 3)  + # Labels show residual value                                                                  # alpha to fade lines
+  geom_point() + # Values  
+  geom_point(aes(y = predicted), shape = 1) + # Fitted values
+  theme_bw()
+```

@@ -1,0 +1,245 @@
+---
+title: 'lab_4_restructuring_data'
+author: "Ben Burnley"
+date: "2022-09-22"
+output: html_document
+---
+
+## Reivew: ggplot2
+
+```{r}
+# packages 
+library(ggplot2)
+library(readr)
+library(vtable)
+
+# load data 
+girlpower = read_csv("WomenGov10.csv")
+extravars = read_csv("WomenGov10_extravars.csv")
+View(girlpower)
+
+# data vizualization
+ggplot(girlpower, aes(citizen_ideology, num_women_total_hs, color = factor(termlimit)))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  theme_classic()
+
+vtable::sumtable(girlpower)
+
+```
+
+"
+
+## 
+
+## Introduction to the Tidyverse
+
+```{r}
+# load package 
+#install.packages("tidyverse")
+library(tidyverse)
+```
+
+The `tidyverse` package is really a family of packages that are super helpful for a number of data wrangling and visualizing needs. We will mostly be working with `dplyr` in this lesson, which allows us to restructure and reorganize our data.
+
+One thing to note about the `tidyverse` is that it expects and really works best on data that is "tidy". Tidy data meets the following criteria:
+
+1.  Every **column** is a **variable.**
+
+2.  Every **row** is an **observation.**
+
+3.  Every **cell** is a single **value.**
+
+```{r}
+# is this data tidy?
+View(girlpower)
+```
+
+One final note: the `tidyverse` uses the pipe operator - `%>%` - in its syntax. The pipe functions by inheriting the data argument from the line above it. This allows the user to string together several verbs in a code chunk that is concise and has higher readability.
+
+```{r}
+# for example: this chunk of code creates two new variables
+girlpower$regionid <- NA 
+girlpower$regionid[girlpower$northeast==1] <- 1 
+girlpower$regionid[girlpower$midwest==1] <- 2
+girlpower$regionid[girlpower$west==1] <- 3
+girlpower$regionid[girlpower$south==1] <- 4
+
+girlpower$west <- NA
+girlpower$west[girlpower$regionid==3] <- 1
+girlpower$west[girlpower$regionid==1 |  #note the | (symbol for "or")
+               girlpower$regionid==2 | 
+               girlpower$regionid==4] <- 0
+
+
+## same code in tidyverse
+girlpower = girlpower %>% 
+  mutate(regionid_tidy = ifelse(northeast == 1, 1,
+                                 ifelse(midwest == 1, 2,
+                                         ifelse(west == 1, 3,
+                                                ifelse(south == 1, 4, NA)))),
+         west_tidy =  ifelse(regionid == 3, 1, 0))
+```
+
+The base R version is 10 lines long and I have to type `girlpower` 16 times.
+
+The tidy version is 5 lines long, I have to type `girlpower` once, AND there are no `$` .
+
+### The `summarize` verb
+
+```{r}
+# put simply, you use this to summarize
+girlpower %>% 
+  summarize(mean_ideology = mean(pct_women_hs))
+
+# lots of summary stats
+girlpower %>% 
+  summarize(mean = mean(pct_women_hs), 
+            median = median(pct_women_hs),
+            sd = sd(pct_women_hs),
+            IQR = IQR(pct_women_hs),
+            min = min(pct_women_hs),
+            max = max(pct_women_hs))
+```
+
+This is not super useful on its own. Paired with other `tidyverse` verbs, it can be incredibly insightful.
+
+### The `group_by` verb
+
+This verb allows you to group your data by a variable of interest and then manipulate these groupings.
+
+```{r}
+# comprehension check: what has this done?
+girlpower %>% 
+  group_by(state)
+```
+
+```{r}
+girlpower %>% 
+  group_by(region) %>% 
+  summarize(mean = mean(pct_women_hs))
+```
+
+### The `filter` verb
+
+```{r}
+girlpower %>% 
+  filter(region %in% c("South", "Northeast"))
+```
+
+### The `mutate` verb
+
+One of the most common tasks we will want to do is create new variables in our data set. The `mutate` verb does this, though the name is not necessarily intuitive - think "create".
+
+```{r}
+# the example above 
+girlpower = girlpower %>% 
+  mutate(regionid_tidy = ifelse(northeast == 1, 1,
+                                 ifelse(midwest == 1, 2,
+                                         ifelse(west == 1, 3, 4))),
+         west_tidy =  ifelse(regionid == 3, 1, 0))
+
+# creating a binary "conservative" variable 
+girlpower = girlpower %>% 
+  mutate(conservative_govt = govt_ideology < 50)
+
+girlpower$conservative_govt
+
+# new percent democratic variable 
+girlpower = girlpower %>% 
+  mutate(pct_dem = (num_dem_hs/num_total_hs)*100)
+
+girlpower$pct_dem
+
+# new LFP squared variable 
+girlpower = girlpower %>% 
+  mutate(pct_LFP_women_squared = pct_LFP_women^2)
+
+girlpower$pct_LFP_women_squared
+```
+
+### `select` and `arrange`
+
+```{r}
+# selecting certain variables
+girlpower %>% 
+  select(state, conservative_govt)
+
+# selecting a set of variables
+girlpower %>% 
+  select(state:termlimit)
+
+# removing variables
+girlpower %>% 
+  select(-st)
+```
+
+```{r}
+# arrange by lowest value
+girlpower %>% 
+  arrange(pct_women_hs)
+
+# arange by highest value 
+girlpower %>% 
+  arrange(desc(pct_women_hs))
+```
+
+### Putting it All Together
+
+These verbs vary in their use on their own, but put together they become very useful.
+
+```{r}
+# this is not super useful for a full data set, but comes in handy when summarizing
+girlpower %>% 
+  group_by(region) %>% 
+  summarize(mean = mean(pct_women_hs)) %>% 
+  arrange(desc(mean))
+```
+
+```{r}
+# grouped mutate example - with ungroup()
+girlpower %>% 
+  group_by(region) %>% 
+  mutate(avg_region_pct_women = mean(pct_women_hs)) %>% 
+  ungroup() %>% 
+  mutate(above_region_avg = ifelse(pct_women_hs > avg_region_pct_women, 1, 0)) %>% 
+  select(state, pct_women_hs, avg_region_pct_women, above_region_avg)
+```
+
+## Merges
+
+Another extremely helpful tool available from the tidyverse is are the joining verbs that allow you to merge together different data sets.
+
+### Mutating Joins
+
+```{r}
+view(extravars)
+
+# leftjoin - match rows from b to a 
+left = girlpower %>% 
+  left_join(extravars, by = "state")
+
+# right join - match rows from a to b 
+right = girlpower %>% 
+  right_join(extravars, by = "state")
+
+# inner join - join and keep only matches 
+inner = girlpower %>% 
+  inner_join(extravars, by = "state")
+
+# full join - keep all values
+full = girlpower %>% 
+  full_join(extravars, by = "state")
+```
+
+### Filtering Joins
+
+```{r}
+# semi join - all the rows in a that have a match in b
+semi = girlpower %>% 
+  semi_join(extravars, by = "state")
+
+# antijoin - all rows in a that DO NOT have match in b
+anti = girlpower %>% 
+  anti_join(extravars, by = "state")
+```

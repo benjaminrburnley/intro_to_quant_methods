@@ -1,0 +1,205 @@
+---
+title: "lab_11_multiple_regression"
+author: "Ben Burnley"
+date: "2022-11-16"
+output: html_document
+---
+
+### Set up
+
+```{r}
+# libraries 
+library(tidyverse)
+#intstall.packages("corrplot")
+library(corrplot)
+library(coefplot)
+library(dotwhisker)
+library(stargazer)
+library(car)
+
+# load data 
+data = read_csv("speeding_tickets_text.csv")
+```
+
+### Codebook
+
+**MPHOver** - Miles per hour over the speed limit
+
+**Amount** - Assessed fine for the ticket (in dollars)
+
+**Age** - Age of driver (in years)
+
+**Female**  - Equals 1 for women and 0 for men
+
+**Black** - Equals 1 if driver was Black and 0 otherwise
+
+**Hispanic** - Equals 1 if driver was Hispanic and 0 otherwise
+
+**StatePol**  - Equals 1 if ticketing officer was state patrol officer
+
+**OutTown** - Equals 1 if driver was from out of town and 0 otherwise
+
+**OutState**  - Equals 1 if driver was from out of state and 0 otherwise
+
+The question raised by Makowsky and Stratmann (2009) is one of political economy. What influences the decision making process of police when they are giving a ticket. Most states provide formulas for how to assess a fine for a ticket, but where and how do officers differ in actually implementing this law. The data are from Massachusetts, so we don't have to worry about variation in state law for this analysis.
+
+#### What are your priors?
+
+Does age matter?
+
+Does gender matter?
+
+Does race matter?
+
+Does whether the driver is local matter?
+
+#### What do you have any questions about measurement here?
+
+### Exploratory Data Analysis
+
+```{r}
+# example of correlation matrix and correlation plot
+cor_mat = cor(data)
+cor_mat
+corrplot::corrplot(cor_mat)
+```
+
+### Does age of driver influence ticket amount?
+
+```{r}
+# create a scatter plot of age and ticket amount? 
+ggplot(data, aes(Age, Amount))+
+  geom_point()
+
+ggplot(data, aes(Age, Amount))+
+  geom_point(position = "jitter", alpha = 0.33)+
+  geom_smooth(method = "lm", se = F)
+
+# run a simple linear regression of ticket amount and age of driver. 
+m1 = lm(Amount ~ Age, data = data)
+summary(m1)
+```
+
+#### What concerns do you have about endogenity?
+
+```{r}
+# run the model from above regressing ticket amount on age, but now control for miles per hour over the speed limit. 
+m2 = lm(Amount ~ Age + MPHover, data = data)
+summary(m2)
+```
+
+```{r}
+# compare model specifications
+dotwhisker::dwplot(list(m1,m2))+
+  geom_vline(aes(xintercept = 0), color = "black", linetype = "dashed")
+
+# coefplot shows intercept increase
+coefplot::multiplot(m1,m2)
+```
+
+#### A quick aside on power:
+
+```{r}
+# subset the data to only include the first 1,000 observations. run both models again on this new data. What happens to our t-statistics and standard errors? 
+data2 = data[1:1000,]
+
+m1_sub = lm(Amount ~ Age, data = data2)
+summary(m1_sub)
+m2_sub = lm(Amount ~ Age + MPHover, data = data2)
+summary(m2_sub)
+```
+
+```{r}
+# stargazer
+stargazer(m1,m2,m1_sub,m2_sub, type = "text")
+```
+
+```{r}
+# dot and whisker plot
+dotwhisker::dwplot(list(m1,m2,m1_sub,m2_sub))+
+  geom_vline(aes(xintercept = 0), color = "black", linetype = "dashed")
+```
+
+### Do the demographics of the driver matter?
+
+```{r}
+# using regression, run a difference of means test to determine whether men and women are fined differently.
+m3 = lm(Amount ~ Female, data = data)
+summary(m3)
+```
+
+```{r}
+data3 = data %>% 
+  group_by(Female) %>% 
+  summarize(mean = mean(Amount,na.rm = T))
+data3
+
+ggplot(data, aes(Female, Amount))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)+
+  geom_point(data = data3, aes(Female, mean), color = "red", size = 6)
+```
+
+#### What do your results indicate? Are you concerned about endogeneity?
+
+```{r}
+# run the same difference of means test from above to determine whether men and women are fined differently but controlling for MPH over the speed limit. 
+m4 = lm(Amount ~ Female + MPHover, data = data)
+summary(m4)
+```
+
+#### A look at how control works
+
+```{r}
+plot(data$Female, data$Amount)
+plot(data$MPHover, data$Amount)
+
+avPlot(m4, "Female")
+```
+
+#### Interpret the results. Are you concerned about endogeneity?
+
+```{r}
+# now control for whether the driver is black or hispanic.
+m5 = lm(Amount ~ Female + MPHover + Black + Hispanic, data = data)
+summary(m5)
+```
+
+#### Interpret these results. Explain what the coefficients on Black and Hispanic mean.
+
+#### Look at the standard errors on the coefficients for Female, Black, and Hispanic. Why are they different?
+
+```{r}
+
+```
+
+### Bonus Question: How would we know being a woman of color (in this case Black and female or Hispanic and female) has a differential effect on the ticket amount?
+
+```{r}
+
+```
+
+### Do cops punish those from out of town/state?
+
+```{r}
+# run your last regression model that controls for all demographics and MPH over the speed limit, but now control for whether the driver is from out of town? 
+m6 = lm(Amount ~ Female + MPHover + Black + Hispanic + OutTown, data = data)
+summary(m6)
+```
+
+```{r}
+# run the last regression but now control for whether the driver was also from out of state.
+m7 = lm(Amount ~ Female + MPHover + Black + Hispanic + OutTown + OutState, data = data)
+summary(m7)
+```
+
+### What are our takeaways?
+
+```{r}
+# use stargazer to create a regression table with 3 or 4 of the models used above. 
+stargazer::stargazer(m3,m4, m5,m7, type = "text")
+
+# use coefplot to show point estiamtes from those same models.
+coefplot::multiplot(m3,m4,m5,m7)
+dotwhisker::dwplot(list(m3,m4,m5,m7))
+```

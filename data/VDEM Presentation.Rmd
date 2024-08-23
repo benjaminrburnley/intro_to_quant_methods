@@ -1,0 +1,474 @@
+---
+title: "VDEM Presentation"
+author: "Ben Burnley"
+date: "2022-11-01"
+output: html_document
+---
+
+Outline
+ - Definition and Conceptualization 
+ - Explore the distribution 
+ - Relate 3-4 additional variables that you expect to prove related to your variables. Write your hypotheses before measurement. 
+ - Explore the hypotheses empirically through data visualization or statistical testing. Did you hypotheses pan out? Why or why not? 
+ - 15 - 20 mins
+ 
+ Variables: 
+ Internet binary (C) (v2mecenefibin)
+ Online media existence (C) (v2smonex)
+ Online media perspectives (C) (v2smonper)
+ Online media fractionalization (C) (v2smmefra)
+ Elites’ use of social media to organize offline action (C) (v2smorgelitact)
+ Types of organization through social media (C) (v2smorgtypes)
+ Other types of organization through social media (C) (v2smorgtypestxt)
+ Party/candidate use of social media in campaigns (C) (v2smcamp)
+ 
+ 
+ 
+ 
+```{r}
+# libraries 
+library(tidyverse)
+library(vdemdata)
+library(ggridges)
+library(maps)
+library(MetBrewer)
+
+install.packages("devtools")
+# now, install the vdemdata package directly from GitHub
+devtools::install_github("vdeminstitute/vdemdata")
+
+# import 
+data = vdemdata::vdem
+world_map = map_data("world")
+
+
+my_theme =  theme_minimal()+
+  theme(
+    plot.title = element_text(face = "bold", size = 16)
+  )
+```
+
+### Cleaning 
+```{r}
+first = data %>% 
+  filter(year > 1992) %>% 
+  select(country_name) %>% 
+  distinct(country_name)
+
+second = world_map %>% 
+  select(region) %>% 
+  distinct(region)
+
+first %>% 
+  anti_join(second, by = c("country_name" = "region"))
+
+
+clean = data %>% 
+  mutate(country_name = if_else(country_name == "Burma/Myanmar", "Myanmar",
+                                ifelse(country_name == "United States of America", "USA",
+                                       ifelse(country_name == "United Kingdom", "UK",
+                                              ifelse(country_name =="Republic of the Congo", "Republic of Congo",
+                                                            ifelse(country_name == "The Gambia", "Gambia", country_name)))))) %>% 
+  mutate(censor = 3 - v2mecenefi_osp)
+```
+
+ 
+```{r, message=FALSE}
+# eda for v2smonex
+summary(data$v2smonex_osp)
+
+ggplot(data, aes(v2smonex_osp))+
+  geom_histogram()
+
+data %>% 
+  filter(year > 2000) %>% 
+  group_by(year) %>% 
+  ggplot(aes(v2smonex_osp, factor(year), group = year, fill = factor(stat(quantile))))+
+  stat_density_ridges(geom = "density_ridges_gradient", calc_ecdf = TRUE,
+    quantiles = 4, quantile_lines = TRUE, alpha = .75)+
+  scale_fill_viridis_d(name = "Quartiles", guide = FALSE)+
+  labs()
+  theme_ridges()
+
+```
+ 
+ ## Internet Binary 
+```{r}
+## summary of the variable
+summary(data$v2mecenefibin)
+table(data$v2mecenefibin_osp)
+
+# increase in internet over time
+data %>% 
+  filter(year > 1992) %>% 
+  group_by(year) %>% 
+  summarize(mean_int = mean(v2mecenefibin_osp, na.rm = T)) %>% 
+  ggplot(aes(year, mean_int))+
+  geom_line(color = "blue", size = 2)+
+  labs(
+    title = "Growth of Internet Access over time",
+    caption = "Source: Varieties of Democracy Project",
+    x = "Year",
+    y = "% of Countries with Internet Access"
+  )+
+  theme_minimal()+
+  theme(
+    plot.title = element_text(face = "bold", size = 16)
+  )+
+  my_theme
+
+## mapping the adoption of internet 
+clean %>% 
+  filter(year %in% c(1993,1998,2003,2008,2013,2018)) %>% 
+  select(country_name, year, v2mecenefibin_osp) %>% 
+  ggplot(aes(fill = v2mecenefibin_osp))+
+  geom_map(aes(map_id = country_name), map = world_map)+
+  scale_fill_viridis_c(option = "D", guide = "none")+
+  expand_limits(x = world_map$long, y = world_map$lat)+
+  facet_wrap(~year)+
+  theme_void()+
+  theme(
+    axis.title = element_blank(),
+    axis.line = element_blank(),
+    axis.ticks = element_blank(),
+    axis.text = element_blank(),
+    strip.text = element_text(face = "bold"),
+    plot.title = element_text(face = "bold"),
+    plot.background = element_rect(fill = "white", color = "white"),
+    text = element_text(color = "black")
+    )+
+  labs(
+    title = "Internet Access over time",
+    subtitle = "Lighter colors indicate more access",
+    caption = "Source: Varities of Democracy Project"
+  )
+
+```
+### 
+```{r}
+clean %>% 
+  select(country_name, year, v2smonex_osp)%>% 
+  filter(year %in% c(2000, 2005, 2010, 2015, 2020)) %>% 
+  ggplot(aes(v2smonex_osp, factor(year), group = year, fill = factor(stat(quantile))))+
+  stat_density_ridges(geom = "density_ridges_gradient", calc_ecdf = TRUE,
+    quantiles = 4, quantile_lines = TRUE, alpha = .75)+
+  scale_fill_viridis_d(name = "Quartiles", guide = "none", alpha = 0.75)+
+  labs(
+    title = "Online Media Existence over Time",
+    x = "Online Media Existence",
+    y = "Year",
+    caption = "Source: Varieties of Democracy Project"
+      )+
+  theme_ridges()+
+  theme()
+
+clean %>% 
+  filter(year %in% c(2000, 2005, 2010, 2015, 2020)) %>% 
+  select(country_name, year, v2smonex_osp) %>% 
+  ggplot(aes(fill = factor(round(v2smonex_osp))))+
+  geom_map(aes(map_id = country_name), map = world_map)+
+  scale_fill_viridis_d(name = "OME Score")+
+  expand_limits(x = world_map$long, y = world_map$lat)+
+  facet_wrap(~year)+
+  theme_void()+
+  theme(
+    axis.title = element_blank(),
+    axis.line = element_blank(),
+    axis.ticks = element_blank(),
+    axis.text = element_blank(),
+    strip.text = element_text(face = "bold"),
+    plot.title = element_text(face = "bold", hjust = .5),
+    plot.background = element_rect(fill = "white", color = "white"),
+    text = element_text(color = "black"),
+    legend.position = c(.85,.3),
+    )+
+  labs(
+    title = "Online Media Existence",
+    caption = "Source: Varieties of Democracy Project"
+  )
+
+clean %>% 
+  filter(year > 2000) %>% 
+  group_by(year) %>% 
+  summarize(mean_int = mean(v2smonex_osp, na.rm = T)) %>% 
+  ggplot(aes(year, mean_int))+
+  geom_line(color = "blue", size = 2)+
+  labs(
+    title = "Growth of Online Media Existence",
+    caption = "Source: Varieties of Democracy Project",
+    x = "Year",
+    y = "Average Score"
+  )+
+  
+  theme_minimal()+
+  theme(
+    plot.title = element_text(face = "bold", size = 16)
+  )+
+  my_theme
+```
+## Party Social Media Use Online
+```{r}
+v2smcamp_osp
+
+clean %>% 
+  filter(year > 1999) %>% 
+  group_by(year) %>% 
+  summarize(mean_int = mean(v2smcamp_osp, na.rm = T)) %>% 
+  ggplot(aes(year, mean_int))+
+  geom_line(color = "blue", size = 2)+
+  labs(
+    title = "Growth of Social Media Use by Party/Candidate",
+    caption = "Source: Varieties of Democracy Project",
+    x = "Year",
+    y = "Average Score"
+  )+
+  
+  theme_minimal()+
+  theme(
+    plot.title = element_text(face = "bold", size = 16)
+  )+
+  my_theme
+
+clean %>% 
+  select(country_name, year, v2smcamp_osp)%>% 
+  filter(year %in% c(2000, 2005, 2010, 2015, 2020)) %>% 
+  ggplot(aes(v2smcamp_osp, factor(year), group = year, fill = factor(stat(quantile))))+
+  stat_density_ridges(geom = "density_ridges_gradient", calc_ecdf = TRUE,
+    quantiles = 4, quantile_lines = TRUE, alpha = .75)+
+  scale_fill_viridis_d(name = "Quartiles", guide = "none", alpha = 0.75)+
+  labs(
+    title = "Social Media Use by Party/Candidate over Time",
+    x = "Social Media Usage Score",
+    y = "Year",
+    caption = "Source: Varieties of Democracy Project"
+      )+
+  theme_ridges()+
+  theme()
+
+
+clean %>% 
+  filter(year %in% c(2000, 2005, 2010, 2015, 2020)) %>% 
+  select(country_name, year, v2smcamp_osp) %>% 
+  ggplot(aes(fill = factor(round(v2smcamp_osp))))+
+  geom_map(aes(map_id = country_name), map = world_map)+
+  scale_fill_viridis_d(name = "Social Media Usage")+
+  expand_limits(x = world_map$long, y = world_map$lat)+
+  facet_wrap(~year)+
+  theme_void()+
+  theme(
+    axis.title = element_blank(),
+    axis.line = element_blank(),
+    axis.ticks = element_blank(),
+    axis.text = element_blank(),
+    strip.text = element_text(face = "bold"),
+    plot.title = element_text(face = "bold", hjust = .5),
+    plot.background = element_rect(fill = "white", color = "white"),
+    text = element_text(color = "black"),
+    legend.position = c(.85,.3),
+    )+
+  labs(
+    title = "Social Media Use by Party/Candidate over Time",
+    caption = "Source: Varieties of Democracy Project"
+  )
+```
+
+```{r}
+v2mecenefi_osp
+
+clean %>% 
+  filter(year > 1993) %>% 
+  group_by(year) %>% 
+  summarize(mean_int = mean(censor, na.rm = T)) %>% 
+  ggplot(aes(year, mean_int))+
+  geom_line(color = "blue", size = 2)+
+  labs(
+    title = "Internet Censorship Effort",
+    caption = "Source: Varieties of Democracy Project",
+    x = "Year",
+    y = "Average Score"
+  )+
+  theme_minimal()+
+  theme(
+    plot.title = element_text(face = "bold", size = 16)
+  )+
+  my_theme
+
+clean %>% 
+  select(country_name, year, censor)%>% 
+  filter(year %in% c(1995, 2000, 2005, 2010, 2015, 2020)) %>% 
+  ggplot(aes(censor, factor(year), group = year, fill = factor(stat(quantile))))+
+  stat_density_ridges(geom = "density_ridges_gradient", calc_ecdf = TRUE,
+    quantiles = 4, quantile_lines = TRUE, alpha = .75)+
+  scale_fill_viridis_d(name = "Quartiles", guide = "none", alpha = 0.75)+
+  labs(
+    title = "Internet Censorship Effort over Time",
+    x = "Internet Censorship Score",
+    y = "Year",
+    caption = "Source: Varieties of Democracy Project"
+      )+
+  theme_ridges()+
+  theme()
+
+
+clean %>% 
+  filter(year %in% c(1995, 2000, 2005, 2010, 2015, 2020)) %>% 
+  select(country_name, year, censor) %>% 
+  ggplot(aes(fill = factor(round(censor))))+
+  geom_map(aes(map_id = country_name), map = world_map)+
+  scale_fill_viridis_d(name = "Internet Censorship")+
+  expand_limits(x = world_map$long, y = world_map$lat)+
+  facet_wrap(~year)+
+  theme_void()+
+  theme(
+    axis.title = element_blank(),
+    axis.line = element_blank(),
+    axis.ticks = element_blank(),
+    axis.text = element_blank(),
+    strip.text = element_text(face = "bold"),
+    plot.title = element_text(face = "bold", hjust = .5),
+    plot.background = element_rect(fill = "white", color = "white"),
+    text = element_text(color = "black"),
+    legend.position = "bottom",
+    )+
+  labs(
+    title = "Internet Censorship Effort over Time",
+    caption = "Source: Varieties of Democracy Project"
+  )
+```
+
+```{r,message=F,warning=F}
+## internet vs. online media adoption
+
+d1 = clean %>% 
+  filter(year > 1992 & year < 2000) %>% 
+  select(country_name, year, v2mecenefibin_osp)
+
+summary(lm(v2mecenefibin_osp ~ year, d1))
+
+
+
+ggplot(clean, aes(v2mecenefibin_osp,v2smonex_osp))+
+  geom_point()+
+  geom_smooth(method = "lm")
+
+summary(glm(v2mecenefibin_osp ~ v2smonex_osp, family = "binomial", data = clean))
+
+summary(lm(censor ~ v2smonex_osp, data = clean))
+
+ggplot(clean, aes(v2smonex_osp,censor))+
+  geom_point(position = "jitter", alpha = 0.5)+
+  geom_smooth(method = "lm", se = F)+
+  labs(
+    title = "Relationship between Online Media and Censorship Effort",
+    x = "Online Media Existence",
+    y = "Internet Censorship Effort",
+    caption = "Source: Varieties of Democracy Project"
+  )+
+  my_theme
+
+## internet adoption overtime 
+clean %>% 
+  filter(year > 1992 & year < 2000) %>% 
+  ggplot(aes(year, v2mecenefibin_osp))+
+  geom_point(alpha = .75, position = "jitter")+
+  geom_smooth(method = "lm", se = F)+
+  labs(
+    title = "Internet Adoption over time",
+    caption = "Source: Varieties of Democracy Project",
+    x = "Year",
+    y = "Likelihood of Internet Adoption"
+  )+
+  my_theme
+
+summary(lm(v2mecenefibin_osp ~ year, data = d1))
+summary(lm(censor ~ v2smonex_osp, data = clean))
+
+```
+ 
+ 
+```{r}
+clean %>% 
+  ggplot(aes(v2smonex_osp, v2smcamp_osp))+
+  geom_point(alpha = .75)+
+  geom_smooth(method = "lm")+
+  labs(
+    title = "Relationship between Online Media and Party/Candidate Usage",
+    x = "Online Media Existence",
+    y = "Party/Candidate Usage of Social Media",
+    caption = "Source: Varieties of Democracy Project"
+  )+
+  my_theme
+
+summary(lm(v2smcamp_osp ~ v2smonex_osp, data = clean))
+```
+
+```{r}
+clean %>% 
+  ggplot(aes(v2smcamp_osp,censor))+
+  geom_point(alpha = .5, position = "jitter")+
+  geom_smooth(se = F)+
+  labs(
+    title = "Relationship between Party/Candidate Usage & Censorship",
+    caption = "Source: Varieties of Democracy Project",
+    x = "Party/Candidate Social Media Usage",
+    y = "Internet Censorship Effort"
+  )+
+  my_theme
+
+summary(lm(censor ~ v2smcamp_osp, data = clean))
+```
+ 
+```{r}
+clean %>%
+  filter(year > 1999) %>% 
+  ggplot(aes(v2smcamp_osp,censor, color = year))+
+  geom_point(alpha = .5, position = "jitter")+
+  geom_smooth(method = "lm", se = F)+
+  scale_color_viridis_c(name = "Year")+
+  labs(
+    title = "Relationship between Party/Candidate Usage & Censorship",
+    caption = "Source: Varieties of Democracy Project",
+    x = "Party/Candidate Social Media Usage",
+    y = "Internet Censorship Effort"
+  )+
+  my_theme
+```
+```{r}
+clean %>%
+  filter(year > 2010) %>% 
+  ggplot(aes(v2smcamp_osp,censor, color = v2smonex_osp))+
+  geom_point(alpha = .5, position = "jitter")+
+  geom_smooth(method = "lm", se = F)+
+  scale_color_viridis_c(name = "Online Media")+
+  labs(
+    title = "Relationship between Party/Candidate Usage & Censorship",
+    caption = "Source: Varieties of Democracy Project",
+    x = "Party/Candidate Social Media Usage",
+    y = "Internet Censorship Effort"
+  )+
+  my_theme
+```
+ 
+```{r}
+c1 = clean %>% 
+  filter(country_text_id %in% c("SAU", "CHN", "ARE"))
+
+clean %>%
+  filter(year > 1999) %>% 
+  ggplot(aes(v2smcamp_osp,censor, color = v2smonex_osp))+
+  geom_point(alpha = .2, position = "jitter")+
+  geom_text(aes(label = country_text_id), alpha = 1, color = "black")+
+  geom_smooth(method = "lm", se = F)+
+  scale_color_viridis_c(name = "Online Media")+
+  labs(
+    title = "Relationship between Party/Candidate Usage & Censorship",
+    caption = "Source: Varieties of Democracy Project",
+    x = "Party/Candidate Social Media Usage",
+    y = "Internet Censorship Effort"
+  )+
+  my_theme
+
+
+```
+ 
+ 

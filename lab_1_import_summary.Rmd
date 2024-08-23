@@ -1,0 +1,296 @@
+---
+title: '8001 Lab 1: Importing and Summarizing Data'
+author: "Ben Burnley"
+date: "2022-09-01"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Introduction
+
+Welcome to our lab section for Quantitative Methods! A few helpful tips before we get going. The box right below is called a `chunk` of code. Create a new one using the green +C box at the top right or using the shortcut "option + command + i" on Mac or "control + alt + i" on Windows.
+
+```{r}
+### this is a new code chunk! 
+### use hashtags to add comments on your code 
+### tip one is to always leave comments on your code
+```
+
+A couple things...
+
+-   Code in R is case-sensitive, so be mindful of your naming conventions!
+
+-   Run lines of code by holding down "ctrl" + "r" OR "ctrl" + "enter" on Windows; "cmd" + "return" on Mac
+
+-   There is also a button up top that says "Run" and you can use that too!
+
+-   RMarkdown is a great way to create high quality documents with text, data analysis, and data visualization capabilities all in one place.
+
+-   In RMarkdown, run code `chunks` by clicking the green play button at the top right of the `chunk` when you hit the blue yarn `knit` button at the top left of the file, all r code will be executed as part of generating your output file.
+
+## Creating Simple Objects
+
+### Scalars (single value objects):
+
+```{r}
+x <- 5 #creating object "x" with value of 5
+y <- 3 #creating object "y" with value of 3
+
+x #tells us value of x is 5
+y #tells us value of y is 3
+```
+
+### Creating Vectors (objects that are sequences of values):
+
+```{r}
+a <- c(2, 4, 6, 8) #use c to combine values into vector
+b <- c("cat", "dog", "bird", "fish") #creating a character vector
+```
+
+### Creating Dataframes:
+
+```{r}
+age <- c(2, 4, 6, 8) #use c to combine values into vector
+animal<- c("cat", "dog", "bird", "fish") #creating a character vector
+
+data.frame(animal,age) # create the dataframe
+my_pets <- data.frame(animal,age) #store the dataframe
+```
+
+### Creating Factors
+
+```{r}
+# normal character vector
+classes <- c("freshman", "sophomore", "junior", "senior")
+classes
+
+# create factor variable 
+classes_ordinal <- factor(classes, levels = c("senior", "junior", "sophomore", "freshman"))
+classes_ordinal
+```
+
+## Datasets We Are Using Today
+
+-   Ideology score of U.S. legislators for the 117th Congress
+
+    -   `HS117_members.csv`
+    -   <https://voteview.com/data>
+
+-   Ideology score of countries using United Nations General Assembly votes
+
+    -   `IdealpointestimatesAll_Mar2021.tab`
+    -   <https://dataverse.harvard.edu/dataset.xhtml?persistentId=hdl:1902.1/12379>
+
+## Let's Describe our data
+
+-   For code chunks with data import, we typically set `echo = FALSE`, because data import doesn't convey anything that needs displaying. Dataset import will also generate a lot of annoying messages that will be displayed in your pdf unless you set `message = FALSE` in the code chunk as well
+-   For problem sets, I am not interested in how you are importing data UNLESS you are having a problem with data import.
+
+### Importing Data
+
+```{r, echo = FALSE, message = FALSE}
+### SET WORKING DIRECTORY 
+##
+getwd()
+setwd("~/Desktop/8001")
+#### IMPORTING THE DATASET
+##
+#install.packages(readr) #remember, only once/installation of R
+library(readr)
+# Read .csv file
+# Obtain the csv file from: `HS117_members.csv` at  https://voteview.com/data
+
+voteview <- read_csv("HS117_members.csv") # load in voteview data
+UNideal <- read_csv("IdealpointestimatesAll_Jun2022.csv") #load in UN data
+```
+
+
+```{r, echo = FALSE, message = FALSE, eval = FALSE}
+### OTHER EXAMPLES (code will not run, this is for your reference)
+### Excel Files
+#install.packages("readxl")
+library(readxl)
+
+# Importing an Excel file with only one sheet
+ExampleExcel <- read_excel("ExampleExcel.xlsx")
+
+# Importing one sheet from an Excel file with multiple sheets
+ExampleExcelSheet <- read_excel("ExampleExcel.xlsx", sheet = "Sheet Name")
+
+
+#install.packages("haven")
+library("haven")
+# If you are having trouble installing "haven" you can try downloading "tidyverse" (big package that includes "haven")
+
+# Stata files
+ExampleStata <- read_dta("ExampleStata.dta")
+
+# SAS files
+ExampleSAS <- read_sas("ExampleSAS.sas7bdat") 
+
+# SPSS files
+ExampleSPSS <- read_sav("ExampleSPSS.sav") 
+
+## R files
+
+load(file = "ExampleR.RData")
+
+# two more for last resort
+read_table()
+read_delim()
+```
+
+## Desribing the dataset:
+
+To see a list of all of the variable names in the dataset (object) called "voteview":
+
+```{r}
+names(voteview)
+```
+
+To look at a spreadsheet version of your dataset (it will open in new tab):
+
+```{r, eval=FALSE}
+View(voteview) # note the capital V
+```
+
+Note the `eval = FALSE` which instructs R not to try and run this line of code in `pdf` generation. Running the `chunk` with the green button will still work.
+
+To see a snapshot of your data:
+
+```{r}
+head(UNideal) # shows you the first 6 rows
+```
+
+Understanding check: what is our unit of observation in this dataset?
+
+To see dimensions of dataset:
+
+```{r}
+dim(UNideal)
+```
+
+To see number of rows:
+
+```{r}
+nrow(UNideal)
+```
+
+To see number of columns:
+
+```{r}
+ncol(UNideal)
+```
+
+Understanding check: How many variables does the dataset have? How many observations?
+
+## Accessing Variables:
+
+There are two approaches to calling up specific variables from your dataset: 1) Using "attach" function 2) Specifying location of object
+
+1)  The "attach" function seems easier, but can create problems when using multiple datasets. See <https://www.r-bloggers.com/to-attach-or-not-attach-that-is-the-question/>
+
+```{r}
+attach(voteview)
+summary(nominate_dim1)
+detach(voteview)
+```
+
+2)  Rather than using "attach" function, it is usually better to specify object's location. To specify a variable within a dataset, use `$`.
+
+```{r}
+summary(voteview$nominate_dim1)
+```
+
+## Describing Variables:
+
+Checking variable types
+
+```{r}
+class(UNideal$session) # example of numeric variable
+class(UNideal$Countryname) # example of character variable
+```
+
+## Describing numeric variables
+
+First, I'm going to get rid of some annoying data so that I don't have to include `na.rm = TRUE` in every line
+
+```{r}
+voteview <- voteview[-229,]
+```
+
+What did this code do?
+
+```{r}
+
+summary(voteview$nominate_dim1) # 5-number summary (min, 1st, median, 3rd, max)
+
+sum(is.na(voteview$nominate_dim1)) # counting number of missing values
+
+mean(voteview$nominate_dim1) # mean value
+
+min(voteview$nominate_dim1) # minimum value
+
+max(voteview$nominate_dim1) # maximum value
+
+range(voteview$nominate_dim1) # minimum and maximum
+
+var(voteview$nominate_dim1) # variance
+
+sd(voteview$nominate_dim1) # standard deviation
+  sqrt(var(voteview$nominate_dim1)) # (also standard deviation)
+
+IQR(voteview$nominate_dim1) # interquartile range (3rd-1st quartile)
+
+```
+
+-   Note that base R does not have a function for finding the mode.
+-   To do this easily, we can use the "modeest" package.
+
+Only run this chunk once:
+
+```{r, eval=FALSE}
+install.packages("modeest") # installing modeest package once/R installation
+```
+
+Then you can use this function:
+
+```{r}
+library("modeest") # activating modeest package
+mfv(voteview$nominate_dim1) # mfv = "most frequent value"
+```
+
+## Other ways to describe variables
+
+```{r}
+unique(voteview$state_abbrev) # lists unique values for a variable
+
+length(unique(voteview$state_abbrev)) # counts number of unique values
+
+table(voteview$state_abbrev) # frequency table for the number of observations for each value of region
+
+table(voteview$nominate_dim1) # not always useful for examining numeric variables!
+```
+
+Exercises
+
+Exercise 1
+
+```{r}
+vector1 <- c()
+vector2 <- c()
+vector3 <- c()
+
+mydata <- data.frame(vector1, vector2, vector3)
+```
+Exercise 2 
+
+Compare the mean and the standard deviation of `nominate_dim2` variable to the mean and standard deviation for `nominate_dim1`. Find the mean and standard deviation of nominate_dim2 for only House members and for only Senate members.
+
+```{r}
+```

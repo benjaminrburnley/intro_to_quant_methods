@@ -1,0 +1,409 @@
+---
+title: "lab_9_regression_diagnostics"
+author: "Ben Burnley"
+date: "2022-10-25"
+output: html_document
+---
+
+```{r}
+## installs 
+install.packages("car")
+
+## packages 
+library(tidyverse)
+library(car)
+
+## data 
+data = read_csv("height_wage.csv")
+```
+
+# Working through Gauss-Markov Assumptions
+
+## Exploratory Plots
+
+```{r}
+## lets get a sense of our dependent variable - adult hourly wages in 1996
+summary(data$wage96)
+hist(data$wage96)
+hist(log(data$wage96))
+
+## lets get a sense of our independent variable - height in inches in 1985 (self-reported)
+summary(data$height85)
+hist(data$height81)
+
+```
+
+Let's form a hypothesis: We think that individuals who are (taller/shorter) will be (higher/lower) earners later in life.
+
+```{r}
+# simple scatter
+ggplot(data, aes(height85, wage96))+
+  geom_point()
+
+# with jitter and regression line 
+data %>% 
+ggplot(aes(height85, wage96))+
+  geom_point(position = "jitter", alpha = 0.5)+
+  geom_smooth(method = "lm", se = F)
+
+```
+
+## Basic Linear Regression Model
+
+```{r}
+model1 = lm(wage96 ~ height85, data = data)
+summary(model1)
+```
+
+### On Errors and Residuals
+
+We are working with estimated errors (residuals) here. The Gauss-Markov assumptions are assumptions about the *actual errors*, which we do not observe. Residuals are a function of both the data generation mechanism AND the model specification, meaning they are a function of model fit.
+
+### 1. The model is properly specified
+
+-   Is this model properly specified?
+-   Is there measurement error in our independent variable?
+
+```{r}
+## plot with different functions
+data %>% 
+  ggplot(aes(height85, wage96))+
+  geom_point(position = "jitter", alpha = .5)+
+  geom_smooth(method = "lm", se = F)+
+  stat_smooth(method = "lm", formula = y ~ x + I(x^2), color = "red")+
+  stat_smooth(method = "lm", formula = y ~ log(x), color = "green")
+
+## filtered version of the same chart
+data %>% 
+  filter(wage96 < 200) %>% 
+  ggplot(aes(height85, wage96))+
+  geom_point(position = "jitter", alpha = .5)+
+  geom_smooth(method = "lm", se = F)+
+  stat_smooth(method = "lm", formula = y ~ x + I(x^2), color = "red")+
+  stat_smooth(method = "lm", formula = y ~ log(x), color = "green")
+```
+
+#### Transforming our dependent variable
+
+```{r}
+## log scatter 
+ggplot(data,aes(height85, log(wage96)))+
+  geom_point()
+
+## with jitter and regression line
+ggplot(data, aes(height85, log(wage96)))+
+  geom_point(position = "jitter", alpha = 0.5)+
+  geom_smooth(method = "lm", se = F)
+
+## with different specifications
+ggplot(data, aes(height85, log(wage96)))+
+  geom_point(position = "jitter", alpha = .5)+
+  geom_smooth(method = "lm", se = F)+
+  stat_smooth(method = "lm", formula = y ~ x + I(x^2), color = "red")+
+  stat_smooth(method = "lm", formula = y ~ log(x), color = "green")
+```
+
+```{r}
+## what about the log relationship with the dependent variable? 
+model2 = lm(log(wage96) ~ height85, data = data)
+summary(model2)
+```
+
+```{r}
+## interpretation of logged DV
+(exp(model2$coefficients[2]) - 1)*100
+```
+
+For each additional inch of height in 1985, we expect the individual to make an additional 3.4%
+
+```{r}
+## adding residuals and fitted values to data set
+data_res = data %>% 
+  mutate(m1_res = model1$residuals,
+         m1_fv = model1$fitted.values, 
+         m2_res = model2$residuals, 
+         m2_fv = model2$fitted.values)
+
+view(data_res)
+```
+
+### 2. Errors are distributed with mean zero
+
+```{r, message=FALSE, warning=F}
+mean(model1$residuals)
+mean(model2$residuals)
+
+# histogram of residuals - model 1
+ggplot(data_res, aes(m1_res))+
+  geom_histogram(fill = "red")+
+  xlim(c(-1500, 1500))
+
+# histogram of residuals - model 2
+ggplot(data_res, aes(m2_res))+
+  geom_histogram(fill = "red")
+```
+
+Is this a valid test of the assumption? Why or why not?
+
+### 3. Errors have constant variance
+
+```{r, message=FALSE}
+## model 1 - kind of hard to tell
+ggplot(data, aes(height85, wage96))+
+  geom_point(position = "jitter", alpha = 0.5)+
+  geom_smooth(method = "lm", se = F)
+
+## log plot
+ggplot(data, aes(height85, log(wage96)))+
+  geom_point(position = "jitter", alpha = 0.5)+
+  geom_smooth(method = "lm", se = F)
+```
+
+We can also look at this by considering the variance of our residuals, grouped on the independent variable.
+
+Checking for heteroskedasticity
+
+```{r}
+## plotting model1 fitted vs. residuals 
+ggplot(data_res, aes(m1_fv, m1_res))+
+  geom_point()+
+  geom_hline(aes(yintercept = 0), color = "red")
+
+## plotting model2 fitted vs. residuals 
+ggplot(data_res, aes(m2_fv, m2_res))+
+  geom_point()+
+  geom_hline(aes(yintercept = 0), color = "red")
+
+## plotting model2 fitted vs. residuals 
+ggplot(data_res, aes(m2_fv, m2_res))+
+  geom_point()+
+  geom_hline(aes(yintercept = 0), color = "red")+
+  geom_smooth(se = F, color = "blue")
+```
+
+We can also check variance of errors along our dependent variable
+
+```{r}
+## create grouping by how many feet tall individual is
+height_groups = data_res %>% 
+  mutate(feet_group = if_else(height85 >=48 & height85 < 60, "Four",
+                                 if_else(height85 >= 60 & height85< 72, "Five", "Six")))
+
+## take variance of residuals, grouped by feet groupings
+height_groups %>% 
+  group_by(feet_group) %>% 
+  summarize(m1_var = var(m1_res),
+            m2_var = exp(var(m2_res)))
+```
+
+### 4. Errors are uncorrelated with one another
+
+Slightly beyond the scope of this class, but here's an example to think about the issue. What if we wanted to incorporate adolescent height?
+
+```{r}
+## recall model 1 
+summary(model1)
+
+## model with height from 4 years prior 
+model3 = lm(wage96 ~ height81, data = data)
+summary(model3)
+
+## model 4 
+model4 = lm(wage96 ~ height85 + height81, data = data)
+summary(model4)
+```
+
+### 5. Errors are uncorrelated with independent variables.
+
+```{r}
+cor(data_res$height85, data_res$m1_res)
+cor(data_res$height85, data_res$m2_res)
+```
+
+Is it this simple? Can we do this?
+
+```{r}
+model5 = lm(wage96 ~ height85 + male, data = data)
+summary(model5)
+```
+
+# Outliers and Leverage
+
+Model 5 estimates that the coefficient on Male is negative. What do we make of this?
+
+```{r}
+## boxplots - logged
+ggplot(data, aes(log(wage96)))+
+  geom_boxplot()+
+  facet_wrap(~male)+
+  coord_flip()
+
+## boxplots 
+ggplot(data, aes(wage96))+
+  geom_boxplot()+
+  facet_wrap(~male)+
+  coord_flip()
+```
+
+```{r, message = F}
+## quick look at the data again
+ggplot(data, aes(height85, wage96))+
+  geom_point()
+
+## separated by gender 
+ggplot(data, aes(height85, log(wage96), color = factor(male)))+
+  geom_point(position = "jitter", alpha = .5)+
+  geom_smooth(method = "lm",se = F)
+```
+
+So we've determined we have an outlier that may be causing us some problems. How can we assess this?
+
+```{r, warning=F, message=F}
+## creating a dummy for our max value 
+data2 = data %>% 
+  mutate(max_wage = if_else(wage96 == max(wage96), 1, 0))
+
+# subset our data for the below example to work
+sample = data2[4500:4599,]
+
+view(sample)
+
+## thinking about leverage
+lev_mod = lm(log(wage96) ~ height85, data = sample)
+ggplot(sample, aes(height85, log(wage96), color = factor(max_wage)))+
+  geom_point(aes(size = factor(max_wage)))+
+  geom_vline(aes(xintercept = mean(height85)), color = "blue", linetype = "dashed")+
+  scale_size_manual(values = c(1,5),guide = "none")+
+  scale_color_manual(values = c("black", "red"), guide = "none")+
+  geom_smooth(method = "lm", se = F, color = "green")+
+  annotate(geom = "text", label = paste0("Beta =",round(lev_mod$coefficients[2], digits = 2)) , x = 72.5, y = 5)
+```
+
+What if our outlier was exactly average height?
+
+```{r, message = F}
+## change outlier height
+sample$height85[sample$max_wage == 1] <- mean(sample$height85)
+
+# run model again
+lev_mod = lm(log(wage96) ~ height85, data = sample)
+
+## look at our graph now
+ggplot(sample, aes(height85, log(wage96), color = factor(max_wage)))+
+  geom_point(aes(size = factor(max_wage)))+
+  geom_vline(aes(xintercept = mean(height85)), color = "blue", linetype = "dashed")+
+  scale_size_manual(values = c(1,5),guide = "none")+
+  scale_color_manual(values = c("black", "red"), guide = "none")+
+  geom_smooth(method = "lm", se = F, color = "green")+
+  annotate(geom = "text", label = paste0("Beta =",round(lev_mod$coefficients[2], digits = 2)) , x = 72.5, y = 5)
+
+```
+
+What if our outlier was really short?
+
+```{r, message = F}
+## change outlier height
+sample$height85[sample$max_wage == 1] <- 48
+
+# run model again
+lev_mod = lm(log(wage96) ~ height85, data = sample)
+
+## look at our graph now
+ggplot(sample, aes(height85, log(wage96), color = factor(max_wage)))+
+  geom_point(aes(size = factor(max_wage)))+
+  geom_vline(aes(xintercept = mean(height85)), color = "blue", linetype = "dashed")+
+  scale_size_manual(values = c(1,5),guide = "none")+
+  scale_color_manual(values = c("black", "red"), guide = "none")+
+  geom_smooth(method = "lm", se = F, color = "green")+
+  annotate(geom = "text", label = paste0("Beta =",round(lev_mod$coefficients[2], digits = 2)) , x = 72.5, y = 5)
+```
+
+What if our outlier was super tall?
+
+```{r, message = F}
+## change outlier height
+sample$height85[sample$max_wage == 1] <- 84
+
+# run model again
+lev_mod = lm(log(wage96) ~ height85, data = sample)
+
+## look at our graph now
+ggplot(sample, aes(height85, log(wage96), color = factor(max_wage)))+
+  geom_point(aes(size = factor(max_wage)))+
+  geom_vline(aes(xintercept = mean(height85)), color = "blue", linetype = "dashed")+
+  scale_size_manual(values = c(1,5),guide = "none")+
+  scale_color_manual(values = c("black", "red"), guide = "none")+
+  geom_smooth(method = "lm", se = F, color = "green")+
+  annotate(geom = "text", label = paste0("Beta =",round(lev_mod$coefficients[2], digits = 2)) , x = 72.5, y = 5)
+```
+
+## Other Diagnostic Options
+
+### Base R Plot Model
+
+```{r}
+## default plot options 
+plot(model1)
+
+## logged model
+plot(model2)
+```
+
+## Looking at other diagnostics
+
+```{r, message = F}
+## DFFITS
+
+## adding dffits - predicted point from model when that point is left out
+data_res$m1_dffits <- dffits(model1)
+data_res$m2_dffits <- dffits(model2)
+
+## plots of dffits 
+ggplot(data_res, aes(m1_dffits))+
+  geom_histogram(color = "black", fill = "red")
+
+ggplot(data_res, aes(m2_dffits))+
+  geom_histogram(color = "black", fill = "red")
+```
+
+```{r}
+## DFBETAS 
+dfbeta() #effect on coefficients of deleting each observation in turn
+dfbetas() # effect on coefficients of deleting each observation in turn, standardized by a deleted estimate of the coefficient standard error
+
+## adding dfbetas
+dfbetas(model1)
+
+## adding just change on slope
+data_res$m1_dfbeta <- dfbetas(model1)[,2]
+data_res$m2_dfbeta <- dfbetas(model2)[,2]
+
+## dfbetas plots
+car::dfbetaPlots(model1)
+car::dfbetasPlots(model1)
+
+car::dfbetasPlots(model2)
+```
+
+```{r}
+## Cooks Distance 
+cooks.distance(model1)
+
+## adding to data set 
+data_res$m1_cooks <- cooks.distance(model1)
+data_res$m2_cooks <- cooks.distance(model2)
+
+#histogram for both models
+hist(data_res$m1_cooks)
+hist(data_res$m2_cooks)
+```
+
+What does this all look like in our leverage model?
+
+```{r}
+# residual plots of leverage model
+plot(lev_mod)
+
+# dfbetas of leverage model
+dfbetasPlots(lev_mod)
+```

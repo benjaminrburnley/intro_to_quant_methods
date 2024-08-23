@@ -1,0 +1,157 @@
+---
+title: "lab_10_control"
+author: "Ben Burnley"
+date: "2022-11-02"
+output: html_document
+---
+```{r}
+# packages 
+library(tidyverse)
+library(stargazer)
+library(coefplot)
+library(broom)
+```
+
+### Simulating a Simple Data Generation Process 
+```{r}
+# create a variable
+a = rnorm(1000)
+
+# b is a function of a (plus some random error)
+b = a * 3 + rnorm(1000)
+
+# plot their relationship 
+plot(a,b)
+
+# run a model estimating their relationship 
+summary(lm(b ~ a))
+
+## loop estimate of relationship 
+ab_sim = tibble(iteration = seq(1,100,1), beta = NA)
+
+for(i in ab_sim$iteration){
+  a = rnorm(1000)
+  b = a * 3 + rnorm(1000)
+  m1 = summary(lm(b ~ a))
+  ab_sim$beta[ab_sim$iteration == i] = m1$coefficients[2]
+}
+
+## plot results 
+ggplot(ab_sim, aes(beta))+
+  geom_histogram(binwidth = 0.01)+
+  geom_vline(aes(xintercept = 3), color = "blue")
+```
+
+### Unrelated independent variables
+```{r}
+# create a variable - x1 
+x1 = rnorm(100)
+
+# create another variable - x2 
+x2 = rnorm(100)
+
+# create a variable that is some comibination of the two - x3
+y = 5*x1 + -2*x2 + rnorm(100)
+
+# plot - x1 & x3 
+plot(x1,y)
+
+# plot - x2 & x3 
+plot(x2,y)
+
+# regress y on x1 
+m1 = lm(y ~ x1)
+summary(m1)
+# regress y on x2 
+m2 = lm(y ~ x2)
+summary(m2)
+ # regress x3 on x1 AND x2 
+m3 = lm(y ~ x1 + x2)
+summary(m3)
+
+## view output 
+stargazer(m1,m2,m3, type = "text")
+
+## Compare confidence intervals
+coefplot(m1)
+coefplot(m2)
+coefplot(m3)
+
+```
+
+### Omitted Variable Example
+```{r}
+# create a variable - x1 
+x1 = rnorm(1000)
+
+# create another variable - x2 
+x2 = 5 * x1 + rnorm(1000)
+
+# create a variable that is some comibination of the two - x3
+y = 2*x1 + -3*x2 + rnorm(1000)
+
+# plot - x1 & x3 
+plot(x1,y)
+
+# plot - x2 & x3 
+plot(x2,y)
+
+# regress x3 on x1 
+summary(lm(y ~ x1))
+
+# regress x3 on x2 
+summary(lm(y ~ x2))
+
+# what happened?
+
+# regress x3 on x1 AND x2 
+summary(lm(y ~ x1 + x2))
+
+```
+
+### Working with even more complicated paths 
+```{r}
+# depending on the relationship you choose, the order of creation will need to vary 
+
+# create a variable - x 
+
+
+# create a variable - z
+
+
+# create a variable - y
+
+
+# plot - x & y
+plot(x,y)
+
+# regress y on x 
+summary(lm(y ~ x))
+
+# was this right???
+```
+
+## Compare Models from Wage & Height Dataset 
+
+```{r}
+wage = read_csv("height_wage.csv")
+```
+
+```{r}
+
+## using the data from last week, run the simple model of wages (wage96) regressed on adult height (height85)
+
+
+## control for gender (male)
+
+
+## run two more models with controls you are interested in (feel free to ask if you are unsure about the variables!)
+
+
+## create a stargazer plot of your models and compare coefficients  
+
+
+# create a coefficient plot to compare how point esimtates and precision varies over your models 
+
+```
+

@@ -1,0 +1,345 @@
+---
+title: "lab_8_functions_and_loops"
+author: "Ben Burnley"
+date: "2022-10-20"
+output: html_document
+---
+
+```{r}
+# packages 
+library(tidyverse)
+#install.packages("rvest")
+library(rvest)
+library(readxl)
+install.packages("gapminder")
+library(gapminder)
+
+# data 
+gapminder = gapminder
+world = read_xlsx("World.xlsx", sheet = 2)
+```
+
+## A fun exercise
+
+![](https://i2-prod.dailystar.co.uk/incoming/article28289431.ece/ALTERNATES/s810/1_Daily-Star-lettuce-captured-the-hearts-and-memes-of-the-people-on-way-to-victory.jpg)
+
+```{r}
+# load table from wikipedia 
+url = read_html("https://en.wikipedia.org/wiki/List_of_prime_ministers_of_the_United_Kingdom_by_length_of_tenure")
+# Obtain the piece of the web page that corresponds to the "wikitable" node
+table = html_node(url, ".wikitable")
+# Convert the html table element into a data frame
+dataframe = html_table(table, fill = TRUE)
+
+## data cleaning 
+pm = dataframe %>% 
+  mutate(nums = str_replace_all(`Tenure length`, "[:alpha:]", ""),
+         nums = str_replace_all(nums, "\\(",""),
+         nums = str_replace_all(nums, "\\)", ""),
+         years = ifelse(str_detect(nums, ","), str_split(nums, ",", n = 2, simplify = T), 0),
+         days = ifelse(str_detect(nums, ","), str_split(nums, ",", n = 1, simplify = T), nums),
+         years = str_trim(years, side = "both"),
+         years = as.numeric(years),
+         days = str_split(nums, patter = ",", n = 2, simplify = T),
+         days = ifelse(years == 0, nums, days[,2]),
+         days = str_trim(days),
+         days = as.numeric(days),
+         year_days = years * 365.25,
+         total_days = year_days + days)
+
+# plot the distribution
+ggplot(pm, aes(total_days))+
+  geom_histogram()
+
+# find average length
+h_0 = mean(pm$total_days)
+h_0
+# find the standard error on this 
+se = sd(pm$total_days)/sqrt(56)
+
+# find the t stat
+t = (44 - h_0)/se
+t
+
+# find p-value
+pt(t, df = 55)
+
+# bands for c.i.
+lims = qt(c(0.025,.975), df = 55)
+
+# calculate confidence interval
+h_0 + se*lims
+
+range(pm$total_days)
+```
+
+## Functions
+
+### Introduction
+
+```{r}
+# you use functions all the time in R and they make your life easier
+?mean
+
+#example code for function 
+function_name = function(arg1, arg2){
+  function_code
+}
+
+#simple function to triple a value
+triple = function(x){
+  x * 3
+}
+
+triple(1:10)
+```
+
+### Arguments
+
+```{r}
+# setting default arguments 
+t_value = function(x, se, null = 0){
+  t = (x - null)/se
+  return(t)
+}
+
+# using the default 
+t_value(10, 1)
+
+# changing a default argument
+t_value(10, 1, null = 8.04)
+```
+
+### When to use functions
+
+From R for Data Science - Wickham and Grolemund
+
+```{r}
+set.seed(8001)
+
+# create lil data frame
+df <- tibble::tibble(
+  a = rnorm(10),
+  b = rnorm(10),
+  c = rnorm(10),
+  d = rnorm(10)
+)
+
+# you want to scale your variables from 0 to 1 and you start writing code like this
+# you find yourself writing code like this...
+df$a <- (df$a - min(df$a, na.rm = TRUE)) / 
+  (max(df$a, na.rm = TRUE) - min(df$a, na.rm = TRUE))
+df$b <- (df$b - min(df$b, na.rm = TRUE)) / 
+  (max(df$b, na.rm = TRUE) - min(df$a, na.rm = TRUE))
+df$c <- (df$c - min(df$c, na.rm = TRUE)) / 
+  (max(df$c, na.rm = TRUE) - min(df$c, na.rm = TRUE))
+df$d <- (df$d - min(df$d, na.rm = TRUE)) / 
+  (max(df$d, na.rm = TRUE) - min(df$d, na.rm = TRUE))
+```
+
+#### How many inputs does it have?
+
+```{r}
+# one iteration of the code - how many inputs?
+(df$a - min(df$a, na.rm = TRUE)) /
+  (max(df$a, na.rm = TRUE) - min(df$a, na.rm = TRUE))
+```
+
+#### Write the calculation you want to make your function
+
+```{r}
+x <- df$a
+
+# this is the calculation we are doing 
+(x - min(x, na.rm = TRUE)) / (max(x, na.rm = TRUE) - min(x, na.rm = TRUE))
+```
+
+```{r}
+# simplify a bit
+rng <- range(x, na.rm = TRUE)
+(x - rng[1]) / (rng[2] - rng[1])
+```
+
+#### Defining and Using Your Function
+
+```{r}
+# write our function!
+rescale01 <- function(x) {
+  rng <- range(x, na.rm = TRUE)
+  (x - rng[1]) / (rng[2] - rng[1])
+}
+
+# put that thing to work
+rescale01(c(0, 5, 10))
+
+
+# original code, written with out function 
+df$a <- rescale01(df$a)
+df$b <- rescale01(df$b)
+df$c <- rescale01(df$c)
+df$d <- rescale01(df$d)
+```
+
+### Plotting Example
+
+```{r}
+# simple scatter plot with linear fit
+scatter = function(data, x, y){
+  ggplot(data, aes({{x}}, {{y}}))+
+  geom_point()+
+  theme_minimal()+
+  geom_smooth(method = "lm", se = F)
+}
+
+# variables in data set
+variable.names(gapminder)
+
+# three simple plots 
+scatter(gapminder, year, lifeExp)
+scatter(gapminder, year, pop)
+scatter(gapminder, year, gdpPercap)
+scatter(gapminder, pop, lifeExp)
+scatter(gapminder, lifeExp, gdpPercap)
+```
+
+### Example Problem
+
+```{r}
+# write a function to convert centegrade to farenheit 
+
+c_to_f = function(t){
+  (t * 9/5) + 32
+}
+c_to_f(37)
+```
+
+## For Loops
+
+```{r}
+## example code 
+for (variable in vector) {
+  code
+}
+
+## simple example 
+for (i in 1:10){
+print(i)
+}
+
+## triple
+for(i in 1:10){
+  print(i * 3)
+}
+
+## Write a for loop that iterates over the numbers 1 to 7 and prints the cube of each number using print().
+for(i in 1:7){
+  print(i^3)
+}
+
+
+```
+
+#### Example of For Loop with Gapminder
+
+```{r}
+countries = unique(gapminder$country)
+countries
+
+# get average GDP per capita for this time period 
+for(country in countries){
+  print(country)
+  print(mean(gapminder$gdpPercap[gapminder$country == country]))
+}
+
+
+# maybe a more helpful example 
+mean_gdppc = vector("numeric", length = length(countries))
+gdps = data.frame(countries, mean_gdppc)
+
+for(country in countries){
+  gdps$mean_gdppc[gdps$countries == country] = mean(gapminder$gdpPercap[gapminder$country == country])
+}
+```
+
+# While Loops and Conditional Flows
+
+```{r}
+# While Loops
+# you are speeding down the road
+speed = 80
+
+# radar machine code
+while (speed > 65) {
+  print("Slow down!!")
+  speed = speed - 5
+}
+
+# more complex with conditional flow 
+if(speed > 65){
+  print("Slow down!!")
+  speed = speed - 3
+  print(speed)
+} else{
+  print("Enjoy your drive :)")
+  print(speed)
+}
+```
+
+## Apply Family
+
+```{r}
+?apply
+?lapply
+
+# mean of each variable in gapminder - returns list
+lapply(gapminder, mean)
+
+# mean of our simulated dataframe from earlier - gives us a list back 
+lapply(df, mean)
+unlist(lapply(df, mean))
+
+# sapply - mean of data frame as a named vector
+sapply(df, mean)
+sapply(gapminder, mean)
+
+## tapply 
+tapply(gapminder$gdpPercap, gapminder$country, mean)
+
+# perhaps a better way
+gapminder %>% 
+  group_by(country) %>% 
+  summarize(mean = mean(gdpPercap))
+```
+
+### Bringing it all together
+
+```{r}
+## example from data essay 1 
+View(world)
+
+# looping through regions
+for (i in 1:7) {
+  print(c(i,mean(world$gdppc2000[world$region == i], na.rm = T)))
+}
+
+# more helpful
+regions = unique(world$regionname)
+for(region in regions){
+  print(c(region, mean(world$gdppc2000[world$regionname == region], na.rm = T)))
+}
+
+# but again...
+world %>% 
+  group_by(regionname) %>% 
+  summarize(mean = mean(gdppc2000, na.rm = T))
+
+## using our function
+scaled_world = world %>% 
+  mutate(scaled_gdp_2000 = rescale01(gdppc2000),
+         scaled_gdp_1960 = rescale01(gdppc1960)) %>% 
+  select(`Country Name`,gdppc1960, scaled_gdp_1960,gdppc2000, scaled_gdp_2000)
+scaled_world
+
+#use our plotting function 
+scatter(scaled_world, scaled_gdp_1960, scaled_gdp_2000)
+```

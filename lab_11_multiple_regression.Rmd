@@ -1,0 +1,140 @@
+---
+title: "lab_11_multiple_regression"
+author: "Ben Burnley"
+date: "2022-11-16"
+output: html_document
+---
+
+### Set up
+
+```{r}
+# libraries 
+library(tidyverse)
+#intstall.packages("corrplot")
+library(corrplot)
+#install.packages("dotwhisker")
+library(dotwhisker)
+library(stargazer)
+
+# load data 
+data = read_csv("speeding_tickets_text.csv")
+```
+
+### Codebook
+
+**MPHOver** - Miles per hour over the speed limit
+
+**Amount** - Assessed fine for the ticket (in dollars)
+
+**Age** - Age of driver (in years)
+
+**Female** - Equals 1 for women and 0 for men
+
+**Black** - Equals 1 if driver was Black and 0 otherwise
+
+**Hispanic** - Equals 1 if driver was Hispanic and 0 otherwise
+
+**StatePol** - Equals 1 if ticketing officer was state patrol officer
+
+**OutTown** - Equals 1 if driver was from out of town and 0 otherwise
+
+**OutState** - Equals 1 if driver was from out of state and 0 otherwise
+
+The question raised by Makowsky and Stratmann (2009) is one of political economy. What influences the decision making process of police when they are giving a ticket. Most states provide formulas for how to assess a fine for a ticket, but where and how do officers differ in actually implementing this law. The data are from Massachusetts, so we don't have to worry about variation in state law for this analysis.
+
+#### What are your priors?
+
+Does age matter?
+
+Does gender matter?
+
+Does race matter?
+
+Does whether the driver is local matter?
+
+#### What do you have any questions about measurement here?
+
+### Exploratory Data Analysis
+
+```{r}
+# example of correlation matrix and correlation plot
+cor_mat = cor(data)
+cor_mat
+corrplot::corrplot(cor_mat)
+```
+
+### Does age of driver influence ticket amount?
+
+```{r}
+# create a scatter plot of age and ticket amount? 
+
+# run a simple linear regression of ticket amount and age of driver. 
+
+```
+
+#### What concerns do you have about endogenity?
+
+```{r}
+# run the model from above regressing ticket amount on age, but now control for miles per hour over the speed limit. 
+
+```
+
+#### A quick aside on power:
+
+```{r}
+# subset the data to only include the first 1,000 observations. run both models again on this new data. What happens to our t-statistics and standard errors? 
+
+```
+
+### Do the demographics of the driver matter?
+
+```{r}
+# using regression, run a difference of means test to determine whether men and women are fined differently.
+
+```
+
+#### What do your results indicate? Are you concerned about endogeneity?
+
+```{r}
+# run the same difference of means test from above to determine whether men and women are fined differently but controlling for MPH over the speed limit. 
+
+```
+
+#### Interpret the results. Are you concerned about endogeneity?
+
+```{r}
+# now control for whether the driver is black or hispanic.
+```
+
+#### Interpret these results. Explain what the coefficients on Black and Hispanic mean.
+
+#### Look at the standard errors on the coefficients for Female, Black, and Hispanic. Why are they different?
+
+```{r}
+
+```
+
+### Bonus Question: How would we know being a woman of color (in this case Black and female or Hispanic and female) has a differential effect on the ticket amount?
+
+```{r}
+
+```
+
+### Do cops punish those from out of town/state?
+
+```{r}
+# run your last regression model that controls for all demographics and MPH over the speed limit, but now control for whether the driver is from out of town? 
+```
+
+```{r}
+# run the last regression but now control for whether the driver was also from out of state.
+```
+
+### What are our takeaways?
+
+```{r}
+# use stargazer to create a regression table with 3 or 4 of the models used above. 
+
+
+# use coefplot to show point estiamtes from those same models.
+```

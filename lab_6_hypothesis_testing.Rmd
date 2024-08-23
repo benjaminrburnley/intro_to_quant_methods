@@ -1,0 +1,284 @@
+---
+title: "lab_6_hypothesis_testing"
+author: "Ben Burnley"
+date: "2022-10-06"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r}
+# load packages 
+library(tidyverse)
+```
+
+## Housekeeping for Problem Sets
+
+-   Show work and code
+
+-   If you work with a colleague, let me know
+
+-   Clean and organized code
+
+-   RMarkdown
+
+    ```{r}
+    # sample code
+    data %>% 
+      filter(x > 5) %>% 
+      mutate(variable = x + y) %>% 
+      summarize(mean = mean(variable))
+    ```
+
+## Confidence Intervals
+
+Let's create a hypothetical population with approval for a president.
+
+```{r}
+set.seed(101)
+
+# this simulation creates a population of 100,000 people asked 1 time whether they like they approve of the president
+population = rbinom(100000, 1, .42)
+
+# what is the population mean? 
+mean(population)
+
+# histogram of our data
+hist(population)
+```
+
+### A poll of that population
+
+```{r}
+# a hypothetical poll of the 1500 members of the population
+poll = sample(population, 1500, replace = FALSE)
+
+# what is our sample estimate? 
+x_bar = mean(poll)
+x_bar
+## standard deviation 
+sd = sd(poll)
+sd
+# method for short cut of a standard deviation of a proportion if doing by hand
+sqrt(x_bar*(1-x_bar))
+```
+
+The formula for calculating a confidence interval:
+
+$$
+C_{95} = \bar{X} \pm z_{C}SE_{\bar{X}} 
+$$
+
+Where, for this [example:\$\$\\bar{X}](example:$$\bar%7BX%7D){.uri} = .43\$\$
+
+$$z_{C} = 1.96$$
+
+$$SE_{\bar{X}} = \frac{.495}{\sqrt1500}
+$$
+
+```{r}
+## we can figure this out! 
+
+# estimate standard error
+se = sd/sqrt(1500)
+se  
+#getting R to give us the critical value 
+qt(.975, df = 1500)
+z_c = qnorm(.975)
+z_c
+# calculate our margin 
+margin = se * z_c
+margin
+
+# calculate interval 
+upper_bound = x_bar + margin
+lower_bound = x_bar - margin
+
+print(c(lower_bound, upper_bound))
+```
+
+### Intuition about 95% Confidence Intervals
+
+```{r}
+## simulate the 100 samples 
+sim_xbar = replicate(
+  n = 100,
+  mean(sample(population, 1500, replace = FALSE))
+)
+hist(sim_xbar) # check: what is this a simulation of?
+
+# create data frame of 100 polls
+polls_100 = data.frame(sim_xbar)
+
+# add bounds and whether they contain our mean
+polls_margins = polls_100 %>% 
+  mutate(upper_bound = sim_xbar + margin,
+         lower_bound = sim_xbar - margin,
+         wegotit = factor(ifelse(lower_bound < .42, ifelse(upper_bound > .42, 1, 0), 0)),
+         sample = seq(1:100))
+
+## Check: what should the answer here be? 
+sum(polls_margins$wegotit == 0)
+```
+
+### Plotting this exercise
+
+```{r}
+# set colors for graphing 
+colorset = c('0'='red','1'='black')
+## 
+ggplot(polls_margins, aes(x = sample, y = sim_xbar)) + 
+  geom_point(aes(color = wegotit)) + 
+  geom_errorbar(aes(ymin = lower_bound, ymax = upper_bound, color = wegotit)) + 
+  scale_color_manual(values = colorset) + 
+  geom_hline(yintercept = .42, linetype = "dashed", color = "blue") + 
+  labs(title = "95% Confidence Intervals") + 
+  theme(plot.title = element_text(hjust = 0.5)) +
+  coord_flip()+
+  theme_minimal()
+  
+```
+
+## Difference in Means, in this Context
+
+Are the estimates of two polls, taken from the same population, significantly different from one another.
+
+**NOTE**: We should *not* expect this. Why?
+
+What if instead we looked at two polls that sampled different regions?
+
+Would we expect differences here?
+
+```{r}
+# population creations
+population_north = rbinom(10000, 1, .54)
+population_south = rbinom(10000, 1, .43)
+
+#poll each region 
+poll_north = sample(population_north, 150, replace = FALSE)
+poll_south = sample(population_south, 75, replace = FALSE)
+
+# estimate of approval in the north
+mean_north = mean(poll_north)
+mean_north
+
+# estimate of approval in south
+mean_south = mean(poll_south)
+mean_south
+```
+
+Let's conduct a hypothesis test that the president's approval rating is the same in both regions.
+
+What is $H_0$?
+
+What is $H_A$?
+
+```{r}
+## we can test this!
+
+# standard error for the north
+se_north = sd(poll_north)/sqrt(150)
+se_north
+
+# standard error for the south
+se_south = sd(poll_south)/sqrt(75)
+se_south
+
+# difference in means
+diff_in_means = mean_north - mean_south
+diff_in_means
+
+# standard error of the difference
+se_diff = sqrt(se_north^2 + se_south^2)
+se_diff
+
+t = (diff_in_means - 0)/se_diff
+t 
+```
+
+stat_function(fun = dt, args = list(df = 1))+
+
+```{r}
+## can we reject the null? 
+1 - pt(t, 74)
+
+# one-tailed test 
+tibble(x = seq(-3,3,0.01)) %>% 
+ggplot(aes(x))+
+  stat_function(fun = dt, args = list(df = 1))+
+  geom_vline(aes(xintercept = 1.699), color = "green")+
+  geom_vline(aes(xintercept = 1.665), linetype = "dashed")+
+  geom_vline(aes(xintercept = 0), color = "blue")+
+  theme_minimal()+
+  labs(x = "t")+
+    theme(
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank()
+  )
+```
+
+```{r}
+tibble(x = seq(-3,3,0.01)) %>% 
+ggplot(aes(x))+
+  stat_function(fun = dt, args = list(df = 1))+
+  geom_vline(aes(xintercept = 1.699), color = "red")+
+  geom_vline(aes(xintercept = -1.99), linetype = "dashed")+
+  geom_vline(aes(xintercept = 1.99), linetype = "dashed")+
+  geom_vline(aes(xintercept = 0), color = "blue")+
+  theme_minimal()+
+  labs(x = "t")+
+  theme(
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank()
+  )
+```
+
+## Hypothesis Testing with p-values
+
+Say another poll from a hack pollster shows that the president's approval rating is at 50%. The media is calling asking you what you think of this. We think that is unlikely given our data, but can we do better than saying we disagree? Can we give $P(data|hypothesis)$?
+
+What is $H_{0}$?
+
+What is $H_{A}$?
+
+```{r}
+# remember calculations from earlier 
+x_bar
+se
+
+(x_bar - .50)/se
+pnorm()
+```
+
+### Test your own hypotheses
+
+```{r}
+
+```
+
+## Sample Size and Hypothesis Testing
+
+```{r}
+plot_interval = function(n){
+data = sample(population, n, replace = FALSE)
+data_mean = mean(data)
+data_sd = sd(data)
+data_se = data_sd/sqrt(n)
+z = qt(.975, df = n)
+margin = z * data_se
+tibble(seq(0,1,0.01)) %>% 
+  ggplot(aes(x = 1, y = data_mean))+
+  geom_point()+
+  geom_errorbar(aes(ymin = data_mean - margin, ymax = data_mean + margin))+
+  geom_hline(aes(yintercept = .42), linetype = "dashed", color = "blue")+
+  theme_minimal()+
+  coord_flip()+
+  ylim(0,1)+
+  theme(
+    axis.text.y = element_blank(),
+    axis.title.y = element_blank()
+  )+
+  labs(y = "Approval")}
+
+plot_interval(10)
+```

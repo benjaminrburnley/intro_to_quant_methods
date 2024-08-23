@@ -1,0 +1,199 @@
+---
+title: "Lab 2: Exploratory Data Analysis"
+author: "Ben Burnley"
+date: "2022-09-06"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Review from Week 1
+
+We will use the mtcars data set for the examples below, so let's go ahead and `attach` it.
+
+```{r}
+attach(mtcars)
+help(mtcars)
+
+#use the data set mtcars for this analysis. how can we see the first part of this dataset?
+
+
+# what are the variable names in this dataset?
+
+
+# get summary statistics for the "disp" variable?
+
+
+# how do we find the variance of the "wt" variable?
+
+
+# how many values are possible for the variable "cyl"?
+
+
+# what is "cyl" a factor? 
+
+```
+
+Ok...
+
+On to this week's material!
+
+# Exploratory Data Analysis
+
+## Bivariate Descriptive Statistics
+
+Last week, we looked at ways univariate descriptive statistics. Let's add in the bivariate descriptive statistics we covered this week in class. We will continue using the `mtcars` data set.
+
+```{r}
+# find the covariance of two variables 
+cov(wt, disp)
+
+# find the correlation between the same two variables
+cor(wt, disp)
+
+# a more under the hood way of understanding correlation
+cov(wt, disp)/(sd(wt)*sd(disp))
+
+# what about a variance/covariance matrix?
+cov(mtcars)
+
+# comprehension check: the matrix shows variance on the diagonal, and covariance in remaining cells. The first two values in the mpg column are:
+var(mpg)
+cov(mpg, cyl)
+```
+
+## Exploratory Visualization
+
+Looking at summary statistics is helpful, but can obscure underlying trends in the data. Visualizing helps us to better understand the data and the patterns (or lack of patterns) present.
+
+### Univariate Plots
+
+```{r}
+# histograms
+hist(mpg)
+
+# working with breaks
+hist(mpg, breaks = 2)
+hist(mpg, breaks = 25)
+
+# add some color!
+hist(mpg, breaks = 10, col = "blue")
+
+```
+
+```{r}
+# density plot 
+plot(density(mpg), main = "Density of `mpg` variable")
+
+#NOTE: this is not ideal for a sample of 32. Becomes helpful with 1) large sample sizes and 2) when comparing distributions/densities. 
+```
+
+```{r}
+# box plots 
+boxplot(mpg)
+
+# display horizontally
+boxplot(mpg, horizontal = TRUE)
+
+# add title
+boxplot(x = mpg, horizontal = TRUE, main = "Boxplot of Miles Per Gallon")
+
+# label x-axis
+boxplot(x = mpg, horizontal = TRUE, main = "Boxplot of `mpg` Variable", xlab = "Miles Per Gallon")
+
+# add color, this time with a hex code 
+boxplot(x = mpg, horizontal = TRUE, main = "Boxplot of `mpg` Variable", xlab = "Miles Per Gallon", col = "#FF0000")
+```
+
+### Bivariate Plots
+
+```{r}
+plot(wt, disp)
+
+# editing the x and y axes
+plot(wt, disp, xlim = c(0,6), ylim = c(0,500))
+
+# make it look nice
+plot(wt, disp, frame.plot = F, pch = 16, col = "red", main = "Displacment vs. Weight from `mtcars`", xlab = "Weight (1000 lbs)", ylab = "Displacement (cu.in.)")
+```
+
+#### Exercises
+
+```{r}
+# create a histogram for a variable we haven't used
+
+# create a boxplot for a variable we haven't used
+
+# create a scatter plot for variables we haven't used
+
+```
+
+## Generating Data
+
+It can be incredibly helpful to understand how to generate your own data and simulate data generation processes.
+
+```{r}
+detach(mtcars)
+
+# for additional reading on the the functions we will use 
+help(sample)
+help(rnorm)
+help(rbinom)
+help(runif)
+
+# Let's simulate a vote in the U.S. House of Representatives
+
+# First, we need to set our seed so that we all get the same results 
+set.seed(8001)
+
+# create categories via sampling 
+parties = c("Republican", "Democrat")
+party = sample(parties, replace = TRUE, size = 435)
+
+# create a approval variable using rnorm
+approval = rnorm(435, mean = 50, sd = 10) # NOTE: default for rnorm is mean = 0, sd = 1
+
+# create a roll call variable
+vote = rbinom(435, size = 1, prob = .5)
+
+# number of children 
+kids = round(runif(435, 0, 5))
+
+# put our variables together into a dataframe
+data.frame(party, approval, vote, kids)
+```
+
+```{r}
+#summary of party
+table(party)
+
+# summary of approval
+hist(approval)
+summary(approval) 
+
+# summary of vote
+hist(vote) # not so useful
+table(vote)
+
+# summary of kids 
+summary(kids)
+boxplot(kids, horizontal = T)
+```
+
+```{r}
+# is there a relationship between kids and approval? 
+plot(kids, approval)
+boxplot(approval ~ kids, horizontal = T)
+```
+```{r}
+# what if we wanted to create a relationship? 
+funds = approval * 1000 + rnorm(435, mean = 10000, sd = 10000)
+
+plot(approval, funds)
+
+cov(approval,funds)
+cor(approval,funds)
+```
+
